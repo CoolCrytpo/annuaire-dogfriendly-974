@@ -58,6 +58,7 @@ export interface Place {
   category?: PlaceCategory
   short_description: string | null
   editorial_summary: string | null
+  cover_image_url: string | null
 
   dog_policy: DogPolicy
   dog_conditions_text: string | null
@@ -214,6 +215,84 @@ export interface PaginatedResult<T> {
 export interface ApiError {
   error: string
   details?: unknown
+}
+
+// ─── New v2 entities ─────────────────────────────────────────────────────────
+
+export interface SiteSetting {
+  key: string
+  value: string | null
+  label: string
+  description: string | null
+  updated_at: string
+}
+
+export interface Sponsor {
+  id: string
+  name: string
+  logo_url: string | null
+  website_url: string | null
+  tagline: string | null
+  is_active: boolean
+  display_order: number
+  starts_at: string | null
+  ends_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AdSlot {
+  id: string
+  slot_key: string
+  label: string
+  description: string | null
+  is_active: boolean
+  content_html: string | null
+  link_url: string | null
+  image_url: string | null
+  position: 'header' | 'list' | 'place_page' | 'footer' | 'sidebar'
+  created_at: string
+  updated_at: string
+}
+
+export interface ImportBatch {
+  id: string
+  name: string
+  source_type: SourceType
+  status: 'pending' | 'processing' | 'done' | 'error'
+  total_count: number
+  accepted_count: number
+  rejected_count: number
+  pending_count: number
+  notes: string | null
+  created_at: string
+  completed_at: string | null
+}
+
+export interface PlaceCandidate {
+  id: string
+  import_batch_id: string | null
+  name: string
+  normalized_name: string
+  category_slug: string | null
+  commune_slug: string | null
+  address_text: string | null
+  lat: number | null
+  lng: number | null
+  website_url: string | null
+  phone: string | null
+  dog_policy: DogPolicy
+  dog_conditions_text: string | null
+  short_description: string | null
+  source_type: SourceType
+  source_url: string | null
+  source_label: string | null
+  raw_data: unknown | null
+  review_status: 'pending' | 'accepted' | 'rejected' | 'duplicate'
+  matched_place_id: string | null
+  reviewed_at: string | null
+  notes: string | null
+  created_at: string
 }
 
 // ─── Search/Filter params ─────────────────────────────────────────────────────

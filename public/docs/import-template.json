@@ -1,0 +1,67 @@
+{
+  "batch": {
+    "name": "Import exemple — Restaurants Saint-Denis",
+    "source_type": "manual",
+    "notes": "Extraction manuelle depuis Google Maps — avril 2026"
+  },
+  "places": [
+    {
+      "name": "La Terrasse du Port",
+      "category_slug": "restaurant",
+      "commune_slug": "saint-denis",
+      "address_text": "12 Rue du Port, 97400 Saint-Denis",
+      "lat": -20.8789,
+      "lng": 55.4481,
+      "website_url": "https://example.com/terrasse-du-port",
+      "phone": "0262 00 00 00",
+      "dog_policy": "conditional",
+      "dog_conditions_text": "Chiens acceptés en terrasse uniquement, en laisse",
+      "short_description": "Restaurant de cuisine créole avec terrasse vue mer",
+      "source_type": "google_places",
+      "source_url": "https://maps.google.com/?cid=123456",
+      "source_label": "Google Maps",
+      "raw_data": {
+        "place_id": "ChIJ_example",
+        "rating": 4.3,
+        "user_ratings_total": 128
+      }
+    },
+    {
+      "name": "Plage de Roches Noires",
+      "category_slug": "plage",
+      "commune_slug": "saint-andre",
+      "address_text": "Route du Littoral, Saint-André",
+      "lat": -20.9612,
+      "lng": 55.6482,
+      "website_url": null,
+      "phone": null,
+      "dog_policy": "allowed",
+      "dog_conditions_text": null,
+      "short_description": "Plage publique accessible aux chiens",
+      "source_type": "osm",
+      "source_url": "https://www.openstreetmap.org/way/123456789",
+      "source_label": "OpenStreetMap",
+      "raw_data": {
+        "osm_id": 123456789,
+        "tags": { "leisure": "beach", "access": "yes" }
+      }
+    },
+    {
+      "name": "Hôtel Le Récif",
+      "category_slug": "hotel",
+      "commune_slug": "saint-gilles-les-bains",
+      "address_text": "Rue de la Plage, 97434 Saint-Gilles-les-Bains",
+      "lat": -21.0543,
+      "lng": 55.2201,
+      "website_url": "https://example.com/hotel-recif",
+      "phone": "0262 00 00 01",
+      "dog_policy": "unknown",
+      "dog_conditions_text": null,
+      "short_description": "Hôtel 3 étoiles face au lagon — politique chien à confirmer",
+      "source_type": "official_website",
+      "source_url": "https://example.com/hotel-recif/contact",
+      "source_label": "Site officiel",
+      "raw_data": null
+    }
+  ]
+}

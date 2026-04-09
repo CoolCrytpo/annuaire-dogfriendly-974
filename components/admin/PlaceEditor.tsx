@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import type { Place, PlaceCategory, Commune } from '@/lib/types'
 import { DOG_POLICY_LABELS } from '@/lib/types'
+import { STORAGE_URL } from '@/lib/supabase/client'
 
 interface Props {
   place?: Partial<Place>
@@ -17,6 +18,40 @@ export function PlaceEditor({ place = {}, categories, communes, onSave }: Props)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [coverUrl, setCoverUrl] = useState<string | null>(place.cover_image_url ?? null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !place.id) return
+    setUploading(true)
+    setUploadError('')
+    const fd = new FormData()
+    fd.append('file', file)
+    try {
+      const res = await fetch(`/api/admin/places/${place.id}/upload`, { method: 'POST', body: fd })
+      const json = await res.json() as { url?: string; error?: string }
+      if (!res.ok) throw new Error(json.error ?? 'Erreur upload')
+      setCoverUrl(json.url ?? null)
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Erreur upload')
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  async function handleRemoveCover() {
+    if (!place.id) return
+    await fetch(`/api/admin/places/${place.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cover_image_url: null }),
+    })
+    setCoverUrl(null)
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -179,6 +214,52 @@ export function PlaceEditor({ place = {}, categories, communes, onSave }: Props)
           </div>
         </div>
       </section>
+
+      {/* Photo de couverture */}
+      {place.id && (
+        <section>
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Photo de couverture</h2>
+          {uploadError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-800 mb-3">{uploadError}</div>
+          )}
+          <div className="flex items-start gap-4">
+            {coverUrl ? (
+              <div className="relative w-40 h-28 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={coverUrl} alt="Photo de couverture" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={handleRemoveCover}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center hover:bg-red-600"
+                  title="Supprimer"
+                >✕</button>
+              </div>
+            ) : (
+              <div className="w-40 h-28 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 text-xs text-center flex-shrink-0">
+                Aucune photo
+              </div>
+            )}
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleUpload}
+              />
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                className="px-4 py-2 text-sm font-medium bg-stone-100 hover:bg-stone-200 disabled:opacity-50 rounded-lg border border-stone-300 transition-colors"
+              >
+                {uploading ? 'Envoi en cours…' : coverUrl ? 'Changer la photo' : 'Ajouter une photo'}
+              </button>
+              <p className="text-xs text-gray-400 mt-1.5">JPEG ou PNG · max 5 Mo</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       <div className="flex gap-3 pt-2">
         <button type="submit" disabled={saving}

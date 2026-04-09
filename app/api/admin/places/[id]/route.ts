@@ -28,6 +28,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     dog_conditions_text: 'dog_conditions_text', address_text: 'address_text',
     commune_id: 'commune_id', lat: 'lat', lng: 'lng',
     website_url: 'website_url', phone: 'phone', opening_hours_text: 'opening_hours_text',
+    cover_image_url: 'cover_image_url',
   }
 
   for (const [key, col] of Object.entries(fieldMap)) {

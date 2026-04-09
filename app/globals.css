@@ -1,26 +1,198 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Inter:wght@400;500;600&display=swap');
 
+/* ─── Design tokens ─────────────────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand */
+  --brand-primary: #f97316;       /* orange-500 — chaleur, soleil, énergie */
+  --brand-primary-light: #fff7ed; /* orange-50 */
+  --brand-primary-mid: #fed7aa;   /* orange-200 */
+  --brand-secondary: #10b981;     /* emerald-500 — nature, validé */
+  --brand-teal: #0ea5e9;          /* sky-500 — mer, liberté */
+  --brand-purple: #8b5cf6;        /* violet-500 — fun, accent */
+
+  /* Dog policy */
+  --policy-allowed: #22c55e;
+  --policy-allowed-bg: #f0fdf4;
+  --policy-allowed-border: #bbf7d0;
+  --policy-conditional: #f59e0b;
+  --policy-conditional-bg: #fffbeb;
+  --policy-conditional-border: #fde68a;
+  --policy-disallowed: #ef4444;
+  --policy-disallowed-bg: #fef2f2;
+  --policy-disallowed-border: #fecaca;
+  --policy-unknown: #94a3b8;
+  --policy-unknown-bg: #f8fafc;
+  --policy-unknown-border: #e2e8f0;
+
+  /* Surfaces */
+  --surface-bg: #fffbf7;          /* fond chaud légèrement orangé */
+  --surface-card: #ffffff;
+  --surface-muted: #faf6f2;
+
+  /* Text */
+  --text-primary: #1c1917;        /* stone-900 */
+  --text-secondary: #78716c;      /* stone-500 */
+  --text-muted: #a8a29e;          /* stone-400 */
+
+  /* Shadows */
+  --shadow-card: 0 2px 8px rgba(249,115,22,.08), 0 1px 3px rgba(0,0,0,.06);
+  --shadow-card-hover: 0 8px 24px rgba(249,115,22,.12), 0 4px 8px rgba(0,0,0,.08);
+  --shadow-hero: 0 20px 60px rgba(249,115,22,.15);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/* ─── Base ───────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+html { scroll-behavior: smooth; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--surface-bg);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+h1, h2, h3, h4, h5, h6,
+.font-display {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-weight: 800;
+}
+
+/* ─── Utility classes ────────────────────────────────────────────────────────── */
+
+/* Gradient brand */
+.gradient-brand {
+  background: linear-gradient(135deg, #f97316 0%, #fb923c 40%, #fbbf24 100%);
+}
+.gradient-brand-text {
+  background: linear-gradient(135deg, #f97316, #fbbf24);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.gradient-hero {
+  background: linear-gradient(145deg, #fff7ed 0%, #fef3c7 40%, #ecfdf5 100%);
+}
+.gradient-card-restaurant { background: linear-gradient(135deg, #fee2e2, #fecaca); }
+.gradient-card-cafe       { background: linear-gradient(135deg, #fef3c7, #fde68a); }
+.gradient-card-bar        { background: linear-gradient(135deg, #ede9fe, #ddd6fe); }
+.gradient-card-hotel      { background: linear-gradient(135deg, #dbeafe, #bfdbfe); }
+.gradient-card-gite       { background: linear-gradient(135deg, #d1fae5, #a7f3d0); }
+.gradient-card-plage      { background: linear-gradient(135deg, #cffafe, #a5f3fc); }
+.gradient-card-parc       { background: linear-gradient(135deg, #dcfce7, #bbf7d0); }
+.gradient-card-randonnee  { background: linear-gradient(135deg, #d1fae5, #6ee7b7); }
+.gradient-card-commerce   { background: linear-gradient(135deg, #fce7f3, #fbcfe8); }
+.gradient-card-veterinaire{ background: linear-gradient(135deg, #dbeafe, #93c5fd); }
+.gradient-card-toilettage { background: linear-gradient(135deg, #fae8ff, #e9d5ff); }
+.gradient-card-pension    { background: linear-gradient(135deg, #fef9c3, #fef08a); }
+.gradient-card-activite   { background: linear-gradient(135deg, #ffedd5, #fed7aa); }
+.gradient-card-transport  { background: linear-gradient(135deg, #f1f5f9, #e2e8f0); }
+.gradient-card-autre      { background: linear-gradient(135deg, #f3f4f6, #e5e7eb); }
+
+/* Cards */
+.card {
+  background: var(--surface-card);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(249,115,22,.08);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+/* Buttons */
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  background: linear-gradient(135deg, #f97316, #fb923c);
+  color: white; font-family: 'Nunito', sans-serif; font-weight: 800;
+  padding: 0.75rem 1.75rem; border-radius: 9999px;
+  box-shadow: 0 4px 14px rgba(249,115,22,.35);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #ea6a0c, #f97316);
+  box-shadow: 0 6px 20px rgba(249,115,22,.45);
+  transform: translateY(-1px);
+}
+.btn-secondary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  background: white; color: #1c1917;
+  font-family: 'Nunito', sans-serif; font-weight: 700;
+  padding: 0.75rem 1.75rem; border-radius: 9999px;
+  border: 1.5px solid rgba(249,115,22,.3);
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.btn-secondary:hover {
+  border-color: #f97316;
+  background: #fff7ed;
+  transform: translateY(-1px);
+}
+.btn-ghost {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  color: #f97316; font-family: 'Nunito', sans-serif; font-weight: 700;
+  padding: 0.5rem 1rem; border-radius: 9999px;
+  transition: all 0.15s ease;
+}
+.btn-ghost:hover { background: #fff7ed; }
+
+/* Chips filtres */
+.chip {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.4rem 0.9rem; border-radius: 9999px;
+  font-family: 'Nunito', sans-serif; font-size: 0.85rem; font-weight: 700;
+  border: 1.5px solid transparent;
+  cursor: pointer; transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.chip-default { background: white; border-color: #e5e7eb; color: #44403c; }
+.chip-default:hover { border-color: #f97316; color: #f97316; background: #fff7ed; }
+.chip-active { background: #f97316; border-color: #f97316; color: white; box-shadow: 0 2px 8px rgba(249,115,22,.3); }
+.chip-allowed { background: #f0fdf4; border-color: #86efac; color: #16a34a; }
+.chip-allowed.chip-active { background: #22c55e; border-color: #22c55e; color: white; }
+.chip-conditional { background: #fffbeb; border-color: #fde68a; color: #d97706; }
+.chip-conditional.chip-active { background: #f59e0b; border-color: #f59e0b; color: white; }
+.chip-disallowed { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+.chip-disallowed.chip-active { background: #ef4444; border-color: #ef4444; color: white; }
+.chip-unknown { background: #f8fafc; border-color: #e2e8f0; color: #64748b; }
+.chip-unknown.chip-active { background: #64748b; border-color: #64748b; color: white; }
+
+/* Policy badges */
+.policy-badge {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.3rem 0.8rem; border-radius: 9999px;
+  font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 0.8rem;
+  border: 1.5px solid;
+}
+.policy-allowed    { background: #f0fdf4; border-color: #86efac; color: #16a34a; }
+.policy-conditional{ background: #fffbeb; border-color: #fde68a; color: #d97706; }
+.policy-disallowed { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+.policy-unknown    { background: #f8fafc; border-color: #e2e8f0; color: #64748b; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #fed7aa; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #f97316; }
+
+/* Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+.animate-fade-up  { animation: fadeUp 0.5s ease both; }
+.animate-float    { animation: float 3s ease-in-out infinite; }
+
+/* Line clamp */
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }

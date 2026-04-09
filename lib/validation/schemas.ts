@@ -46,6 +46,7 @@ export const placeCreateSchema = z.object({
   email_public: z.string().email().optional().or(z.literal('')),
   opening_hours_text: z.string().max(300).optional(),
   price_level: z.number().int().min(1).max(4).optional(),
+  cover_image_url: z.string().url().nullable().optional(),
 })
 
 export const placeUpdateSchema = placeCreateSchema.partial()
