@@ -162,7 +162,7 @@ export function AnnuaireView({ places, total, totalPages, currentPage, searchPar
             border: '1.5px solid rgba(249,115,22,0.1)',
           }}
         >
-          <MapView />
+          <MapView places={places} />
         </div>
       )}
     </div>
