@@ -38,7 +38,11 @@ if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 import requests
+import urllib3
 from bs4 import BeautifulSoup
+
+# api.tourism-system.com utilise un certificat auto-signé
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ─── Format CSV Zanimo (= CSV_COLUMNS dans lib/ingestion/types.ts) ────────────
 CSV_COLS = [
@@ -158,7 +162,7 @@ def fetch_tourinsoft(playlist_id: str, category: str, source_url: str) -> list[d
         try:
             r = requests.get(url, auth=auth,
                              headers={'Accept': 'application/json', 'User-Agent': HEADERS['User-Agent']},
-                             timeout=30)
+                             timeout=30, verify=False)
             if r.status_code != 200:
                 print(f'    ERREUR API {r.status_code} : {url[:80]}')
                 break
