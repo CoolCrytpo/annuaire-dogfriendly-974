@@ -4,14 +4,14 @@ zanimo_scraper.py — Extracteur multi-sources pour Zanimo Guide 974
 Sortie : CSV compatible avec l'import staging (CSV_COLUMNS dans lib/ingestion/types.ts)
 
 SOURCES supportées :
-  ✓ reunion.fr          → API Tourinsoft directe (toutes catégories, ~1000+ fiches)
-  ✓ ouest-lareunion.com → HTML scraping (jQuery/server-side)
-  ✓ lebeaupays.com      → HTML scraping
-  ✓ sudreuniontourisme.fr → HTML scraping
-  ✓ reunionest.fr       → HTML scraping
-  ✓ museesreunion.fr    → WordPress REST API
-  ✗ randopitons.re      → cert TLS invalide, accès manuel requis
-  ✗ TripAdvisor/Airbnb  → CGU interdisent le scraping (voir note en bas)
+  OK reunion.fr          → API Tourinsoft directe (toutes catégories, ~1000+ fiches)
+  OK ouest-lareunion.com → HTML scraping (jQuery/server-side)
+  OK lebeaupays.com      → HTML scraping
+  OK sudreuniontourisme.fr → HTML scraping
+  OK reunionest.fr       → HTML scraping
+  OK museesreunion.fr    → WordPress REST API
+  ERREUR randopitons.re      → cert TLS invalide, accès manuel requis
+  ERREUR TripAdvisor/Airbnb  → CGU interdisent le scraping (voir note en bas)
 
 USAGE :
   pip install requests beautifulsoup4 lxml
@@ -22,6 +22,7 @@ USAGE :
 
 import argparse
 import csv
+import io
 import json
 import re
 import sys
@@ -29,6 +30,12 @@ import time
 import unicodedata
 from datetime import datetime
 from typing import Optional
+
+# Forcer UTF-8 sur Windows (évite UnicodeEncodeError sur cp1252)
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 import requests
 from bs4 import BeautifulSoup
@@ -81,13 +88,13 @@ def get(url: str, **kwargs) -> Optional[requests.Response]:
         r.raise_for_status()
         return r
     except Exception as e:
-        print(f'    ✗ GET {url[:80]} → {e}')
+        print(f'    ERREUR GET {url[:80]} → {e}')
         return None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # SOURCE 1 — REUNION.FR via API Tourinsoft (la plus riche)
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 #
 # reunion.fr utilise Angular + Tourinsoft (SaaS tourisme FR). Les credentials
 # sont embarqués en clair dans le JS de chaque page de listing.
@@ -110,133 +117,118 @@ REUNION_FR_PAGES = [
     ('https://www.reunion.fr/organisez/vos-activites/les-circuits-de-randonnee/', 'balades'),
 ]
 
-TOURINSOFT_API = 'https://api.tourism-system.com'
-
-# Endpoints à tester dans l'ordre (l'API peut varier selon le déploiement)
-TOURINSOFT_ENDPOINTS = [
-    '{base}/api/playlist/{pid}?size={size}&from={offset}',
-    '{base}/playlist/{pid}?size={size}&from={offset}',
-    '{base}/api/v1/playlist/{pid}?limit={size}&offset={offset}',
-]
-
-CATEGORY_MAP_TOURINSOFT = {
-    'Hôtel': 'hebergements',
-    'Chambre d\'hôtes': 'hebergements',
-    'Gîte': 'hebergements',
-    'Camping': 'hebergements',
-    'Location': 'hebergements',
-    'Restaurant': 'restaurants',
-    'Auberge': 'restaurants',
-    'Table d\'hôtes': 'restaurants',
-    'Bar': 'restaurants',
-    'Loisirs': 'activites',
-    'Musée': 'activites',
-    'Randonnée': 'balades',
-    'Sentier': 'balades',
-    'Plage': 'balades',
-}
+TOURINSOFT_API   = 'https://api.tourism-system.com'
+TOURINSOFT_LOGIN = 'public_reunion-tourinsoft_website'
+TOURINSOFT_PASS  = '0e997d634c533344cf815d72120f9616'
+# Compte Tourinsoft pour reunion.fr (présent dans le JS de chaque page)
+TOURINSOFT_ACCOUNT = 'reunion_v2'
+# Endpoint confirmé : /content/ts/{account}/{playlistId}?start=0&size=200
+TOURINSOFT_ENDPOINT = '{base}/content/ts/{account}/{pid}?start={offset}&size={size}'
 
 
-def extract_tourinsoft_config(html: str) -> Optional[tuple[str, str]]:
-    """Extraire playlist_id et token depuis le HTML de la page."""
-    # Chercher le playlist ID (hex 32 chars)
-    for pattern in [
-        r'"playlistId"\s*:\s*"([a-f0-9]{32})"',
-        r'playlist[_/]([a-f0-9]{32})',
-        r'"playlist"\s*:\s*"([a-f0-9]{32})"',
-        r'([a-f0-9]{32}).*?tourism-system',
-    ]:
-        m = re.search(pattern, html)
-        if m:
-            pid = m.group(1)
-            break
-    else:
-        return None
-
-    # Chercher le token Bearer (base64, longueur ~100+)
-    for pattern in [
-        r'"token"\s*:\s*"([A-Za-z0-9+/=]{60,})"',
-        r'Bearer\s+([A-Za-z0-9+/=]{60,})',
-        r'"authorization"\s*:\s*"Bearer ([A-Za-z0-9+/=]{60,})"',
-    ]:
-        m = re.search(pattern, html, re.IGNORECASE)
-        if m:
-            return pid, m.group(1)
-
+def extract_playlist_id(html: str) -> Optional[str]:
+    """Extraire le playlistId depuis DrupalAngularConfig.playlistId = "..." """
+    # Format exact trouvé dans le HTML : DrupalAngularConfig.playlistId = "32hexchars";
+    m = re.search(r'DrupalAngularConfig\.playlistId\s*=\s*"([a-f0-9]{32})"', html)
+    if m:
+        return m.group(1)
+    # Fallback : JSON style
+    m = re.search(r'"playlistId"\s*:\s*"([a-f0-9]{32})"', html)
+    if m:
+        return m.group(1)
     return None
 
 
-def fetch_tourinsoft(playlist_id: str, token: str, category: str, source_url: str) -> list[dict]:
-    """Appel API Tourinsoft — pagination automatique."""
+def fetch_tourinsoft(playlist_id: str, category: str, source_url: str) -> list[dict]:
+    """
+    Appel API Tourinsoft — pagination automatique.
+    Auth : Basic (login:password) — le Bearer token NE fonctionne PAS sur cet endpoint.
+    Structure réponse : { data: [ { metadata: {...}, data: { businessName, contacts, geolocations, ... } } ] }
+    """
     rows = []
     size = 200
     offset = 0
-    auth_headers = {**HEADERS, 'Authorization': f'Bearer {token}', 'Accept': 'application/json'}
+    auth = (TOURINSOFT_LOGIN, TOURINSOFT_PASS)
 
     while True:
-        data = None
-        for tpl in TOURINSOFT_ENDPOINTS:
-            url = tpl.format(base=TOURINSOFT_API, pid=playlist_id, size=size, offset=offset)
-            try:
-                r = requests.get(url, headers=auth_headers, timeout=30)
-                if r.status_code == 200:
-                    data = r.json()
-                    break
-            except Exception:
-                continue
-
-        if not data:
+        url = TOURINSOFT_ENDPOINT.format(
+            base=TOURINSOFT_API, account=TOURINSOFT_ACCOUNT,
+            pid=playlist_id, offset=offset, size=size
+        )
+        try:
+            r = requests.get(url, auth=auth,
+                             headers={'Accept': 'application/json', 'User-Agent': HEADERS['User-Agent']},
+                             timeout=30)
+            if r.status_code != 200:
+                print(f'    ERREUR API {r.status_code} : {url[:80]}')
+                break
+            data = r.json()
+        except Exception as e:
+            print(f'    ERREUR API error: {e}')
             break
 
-        # Normaliser la réponse (plusieurs formats possibles)
-        if isinstance(data, list):
-            items = data
-        elif isinstance(data, dict):
-            items = (data.get('items') or data.get('data') or
-                     data.get('results') or data.get('features') or [])
-        else:
-            break
-
+        # La réponse est { data: [...], metadata: { config: { total: N } } }
+        items = data.get('data', []) if isinstance(data, dict) else data
         if not items:
             break
 
         for item in items:
-            props = item if isinstance(item, dict) else {}
-            # GeoJSON style
-            if 'properties' in props:
-                geo = props.get('geometry', {})
-                coords = geo.get('coordinates', [])
-                lng_val = coords[0] if len(coords) > 0 else ''
-                lat_val = coords[1] if len(coords) > 1 else ''
-                props = props['properties']
-            else:
-                lat_val = props.get('lat', props.get('latitude', props.get('Latitude', '')))
-                lng_val = props.get('lng', props.get('longitude', props.get('Longitude', '')))
+            fiche = item.get('data', item)
 
-            name = clean(props.get('name') or props.get('nom') or props.get('title')
-                         or props.get('Nom') or props.get('label') or '')
+            # Nom
+            name = clean(fiche.get('businessName') or fiche.get('nom') or
+                         fiche.get('dublinCore', {}).get('title') or '')
+            if not name:
+                meta = item.get('metadata', {})
+                name = clean(meta.get('name') or '')
             if not name:
                 continue
 
-            commune = clean(props.get('commune') or props.get('city') or props.get('ville')
-                            or props.get('Commune') or props.get('municipality') or '')
-            address = clean(props.get('address') or props.get('adresse')
-                            or props.get('Adresse') or props.get('streetAddress') or '')
-            phone = clean(props.get('phone') or props.get('telephone')
-                          or props.get('Telephone') or props.get('tel') or '')
-            email = clean(props.get('email') or props.get('courriel')
-                          or props.get('Email') or props.get('mail') or '')
-            website = clean(props.get('website') or props.get('siteWeb')
-                            or props.get('Website') or props.get('url') or '')
-            subcat = clean(props.get('type') or props.get('soustype')
-                           or props.get('subtype') or props.get('typeLabel') or '')
-            ext_id = clean(props.get('id') or props.get('identifiant')
-                           or props.get('ID') or item.get('id') or '')
-            postal = clean(props.get('postalCode') or props.get('codePostal')
-                           or props.get('cp') or '')
+            # Adresse (dans contacts[0].addresses[0])
+            commune = address = postal = phone = email = website = ''
+            lat_val = lng_val = ''
+
+            contacts = fiche.get('contacts', [])
+            if contacts:
+                c0 = contacts[0] if isinstance(contacts, list) else {}
+                addresses = c0.get('addresses', [])
+                if addresses:
+                    a0 = addresses[0]
+                    address = clean(a0.get('address1', '') + ' ' + a0.get('address2', ''))
+                    commune = clean(a0.get('commune', '') or a0.get('city', ''))
+                    postal   = clean(a0.get('zipCode', '') or a0.get('postalCode', ''))
+                phones = c0.get('phones', [])
+                if phones:
+                    phone = clean(phones[0].get('coordinateValue', '') or phones[0].get('phone', ''))
+                emails = c0.get('emails', [])
+                if emails:
+                    email = clean(emails[0].get('coordinateValue', '') or emails[0].get('email', ''))
+                websites = c0.get('websites', [])
+                if websites:
+                    website = clean(websites[0].get('coordinateValue', '') or websites[0].get('url', ''))
+
+            # Géolocalisation
+            geos = fiche.get('geolocations', [])
+            if geos:
+                g0 = geos[0]
+                zones = g0.get('zone', [])
+                if zones:
+                    points = zones[0].get('points', [])
+                    if points:
+                        coords = points[0].get('coordinates', [])
+                        if coords:
+                            lat_val = clean(coords[0].get('latitude', ''))
+                            lng_val = clean(coords[0].get('longitude', ''))
+
+            # Sous-catégorie
+            subcat = clean(fiche.get('bordereau', '') or fiche.get('type', ''))
+
+            # ID externe
+            ext_id = clean(fiche.get('idFiche', '') or fiche.get('codeTIF', '')
+                           or item.get('metadata', {}).get('id', ''))
 
             row = empty_row()
-            row['external_id'] = str(ext_id)
+            row['external_id'] = ext_id
             row['source_type'] = 'tourinsoft_api'
             row['source_page_type'] = 'list'
             row['name'] = name
@@ -245,20 +237,23 @@ def fetch_tourinsoft(playlist_id: str, token: str, category: str, source_url: st
             row['commune'] = commune
             row['address'] = address
             row['postal_code'] = postal
-            row['lat'] = str(lat_val) if lat_val else ''
-            row['lng'] = str(lng_val) if lng_val else ''
+            row['lat'] = lat_val
+            row['lng'] = lng_val
             row['phone'] = phone
             row['email'] = email
             row['website'] = website
-            row['confidence_score'] = '25'  # API officielle → plus fiable
+            row['confidence_score'] = '30'
             row['source_url'] = source_url
             row['source_domain'] = 'reunion.fr'
             row['dedupe_key'] = dedupe_key(name, commune)
             rows.append(row)
 
+        total = data.get('metadata', {}).get('config', {}).get('total', 0) if isinstance(data, dict) else 0
+        offset += size
+        if total and offset >= total:
+            break
         if len(items) < size:
             break
-        offset += size
         time.sleep(0.3)
 
     return rows
@@ -269,33 +264,34 @@ def scrape_reunion_fr() -> list[dict]:
     seen_pids = set()
 
     for page_url, category in REUNION_FR_PAGES:
-        print(f'  → {page_url.split("/")[-2]}')
+        label = page_url.rstrip('/').split('/')[-1]
+        print(f'  → {label}')
         r = get(page_url)
         if not r:
             continue
 
-        config = extract_tourinsoft_config(r.text)
-        if not config:
-            print(f'    ✗ Pas de config Tourinsoft trouvée')
+        pid = extract_playlist_id(r.text)
+        if not pid:
+            print(f'    ERREUR Pas de playlistId trouvé')
             continue
 
-        pid, token = config
         if pid in seen_pids:
-            print(f'    ↩ Playlist déjà traitée, skip')
+            print(f'    SKIP Playlist déjà traitée, skip')
             continue
         seen_pids.add(pid)
 
-        rows = fetch_tourinsoft(pid, token, category, page_url)
-        print(f'    ✓ {len(rows)} fiches')
+        print(f'    playlist: {pid[:8]}...')
+        rows = fetch_tourinsoft(pid, category, page_url)
+        print(f'    OK {len(rows)} fiches')
         all_rows.extend(rows)
         time.sleep(1)
 
     return all_rows
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # SOURCE 2 — MUSÉES RÉUNION via WordPress REST API
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 MUSEES = [
     ('Cité du Volcan',       'https://museesreunion.fr/cite-du-volcan/', 'Le Tampon'),
@@ -349,13 +345,13 @@ def scrape_musees() -> list[dict]:
             row['dedupe_key'] = dedupe_key(name, commune)
             rows.append(row)
 
-    print(f'    ✓ {len(rows)} fiches')
+    print(f'    OK {len(rows)} fiches')
     return rows
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # SOURCE 3 — HTML SCRAPER générique
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 def html_scrape(
     start_url: str,
@@ -637,14 +633,14 @@ def run_html_site(key: str) -> list[dict]:
         label = run['start_url'].split('/')[-2] or run['start_url'].split('/')[-1]
         print(f'  → {label}')
         rows = html_scrape(**run)
-        print(f'    ✓ {len(rows)} fiches')
+        print(f'    OK {len(rows)} fiches')
         all_rows.extend(rows)
     return all_rows
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # GOOGLE PLACES API — enrichissement (optionnel)
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 #
 # Après l'extraction, tu peux enrichir les fiches sans adresse/coords avec
 # Google Places. Clé visible dans la page reunion.fr :
@@ -704,11 +700,11 @@ def enrich_with_google_places(rows: list[dict], limit: int = 0) -> list[dict]:
     return rows
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # TRIPADVISOR / AIRBNB — NOTE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 #
-# ✗ Scraping interdit par leurs CGU (détection anti-bot robuste + risque légal).
+# ERREUR Scraping interdit par leurs CGU (détection anti-bot robuste + risque légal).
 #
 # Options légales :
 #   TripAdvisor : Content API (sur demande) → developer-tripadvisor.com/content-api/
@@ -722,9 +718,9 @@ def enrich_with_google_places(rows: list[dict], limit: int = 0) -> list[dict]:
 #   4. Enrichir via Google Places API automatiquement
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # DÉDUPLICATION locale (avant import)
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 def deduplicate_rows(rows: list[dict]) -> tuple[list[dict], int]:
     seen: dict[str, dict] = {}
@@ -744,9 +740,9 @@ def deduplicate_rows(rows: list[dict]) -> tuple[list[dict], int]:
     return list(seen.values()), dupes
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # EXPORT CSV
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 def write_csv(rows: list[dict], path: str):
     with open(path, 'w', newline='', encoding='utf-8-sig') as f:  # utf-8-sig = BOM pour Excel
@@ -754,12 +750,12 @@ def write_csv(rows: list[dict], path: str):
         w.writeheader()
         for row in rows:
             w.writerow({k: row.get(k, '') for k in CSV_COLS})
-    print(f'\n✓ Export : {len(rows)} fiches → {path}')
+    print(f'\nOK Export : {len(rows)} fiches → {path}')
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # CLI
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 SOURCES_REGISTRY = {
     'reunion':          ('reunion.fr — toutes catégories (API Tourinsoft)',  scrape_reunion_fr),
@@ -805,14 +801,14 @@ def main():
         targets = []
         for k in keys:
             if k not in SOURCES_REGISTRY:
-                print(f'✗ Source inconnue : {k}')
+                print(f'ERREUR Source inconnue : {k}')
                 sys.exit(1)
             targets.append((k, SOURCES_REGISTRY[k]))
 
     all_rows: list[dict] = []
 
     for key, (label, fn) in targets:
-        print(f'\n▶ {label}')
+        print(f'\n> {label}')
         try:
             rows = fn()
             all_rows.extend(rows)
@@ -820,24 +816,24 @@ def main():
             print('\n⚠ Interrompu. Export partiel...')
             break
         except Exception as e:
-            print(f'  ✗ Erreur : {e}')
+            print(f'  ERREUR Erreur : {e}')
 
     # Déduplication
     if not args.no_dedupe and all_rows:
         before = len(all_rows)
         all_rows, dupes = deduplicate_rows(all_rows)
-        print(f'\n↩ Déduplication : {dupes} doublons supprimés ({before} → {len(all_rows)} fiches)')
+        print(f'\nSKIP Déduplication : {dupes} doublons supprimés ({before} → {len(all_rows)} fiches)')
 
     # Enrichissement Google Places
     if args.enrich_google and all_rows:
-        print(f'\n▶ Enrichissement Google Places')
+        print(f'\n> Enrichissement Google Places')
         all_rows = enrich_with_google_places(all_rows, args.enrich_limit)
 
     # Export
     write_csv(all_rows, args.out)
 
     print(f"""
-╔══════════════════════════════════════════════════════════╗
++==========================================================+
   Résumé final
   Fiches extraites  : {len(all_rows)}
   Fichier           : {args.out}
@@ -845,7 +841,7 @@ def main():
   Prochaine étape :
   → Admin Zanimo > Import > Importer un CSV > sélectionner {args.out}
   → Ou via API : POST /api/admin/import/batch (body: {{ rows: [...] }})
-╚══════════════════════════════════════════════════════════╝
++==========================================================+
 """)
 
 
