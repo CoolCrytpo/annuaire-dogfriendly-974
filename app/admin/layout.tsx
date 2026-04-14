@@ -18,6 +18,7 @@ const NAV_SECTIONS = [
     label: 'Import',
     items: [
       { href: '/admin/import', label: 'Importer des lieux', icon: '📥' },
+      { href: '/admin/staging', label: 'Zone de staging', icon: '🗂️' },
     ],
   },
   {
