@@ -28,13 +28,14 @@ const POLICY_LABELS: Record<string, { label: string; bg: string; color: string }
 }
 
 const STATUS_LABELS: Record<string, { label: string; bg: string; color: string }> = {
-  to_review: { label: 'À revoir',  bg: '#eff6ff', color: '#2563eb' },
-  accepted:  { label: 'Accepté',   bg: '#f0fdf4', color: '#16a34a' },
-  rejected:  { label: 'Rejeté',    bg: '#fef2f2', color: '#dc2626' },
-  duplicate: { label: 'Doublon',   bg: '#fdf4ff', color: '#9333ea' },
+  raw_import: { label: 'Import brut', bg: '#f4f4f5', color: '#52525b' },
+  to_review:  { label: 'À revoir',    bg: '#eff6ff', color: '#2563eb' },
+  accepted:   { label: 'Accepté',     bg: '#f0fdf4', color: '#16a34a' },
+  rejected:   { label: 'Rejeté',      bg: '#fef2f2', color: '#dc2626' },
+  duplicate:  { label: 'Doublon',     bg: '#fdf4ff', color: '#9333ea' },
 }
 
-const STATUS_OPTIONS = ['to_review', 'accepted', 'rejected', 'duplicate']
+const STATUS_OPTIONS = ['raw_import', 'to_review', 'accepted', 'rejected', 'duplicate']
 
 export function StagingTable({ items: initial }: Props) {
   const [items, setItems] = useState(initial)

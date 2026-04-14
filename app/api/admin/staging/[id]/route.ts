@@ -28,7 +28,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     values.push(id)
     await pool.query(
-      `UPDATE import_sources SET ${sets.join(', ')}, updated_at = now() WHERE id = $${values.length}`,
+      `UPDATE staging_listings SET ${sets.join(', ')}, updated_at = now() WHERE id = $${values.length}`,
       values
     )
     return NextResponse.json({ ok: true })
@@ -42,7 +42,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   const { id } = await params
   try {
-    await pool.query(`DELETE FROM import_sources WHERE id = $1`, [id])
+    await pool.query(`DELETE FROM staging_listings WHERE id = $1`, [id])
     return NextResponse.json({ ok: true })
   } catch {
     return NextResponse.json({ error: 'DB error' }, { status: 500 })

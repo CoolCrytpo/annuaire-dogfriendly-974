@@ -4,6 +4,7 @@ import { StagingTable } from '@/components/admin/StagingTable'
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Tous statuts' },
+  { value: 'raw_import', label: 'Import brut' },
   { value: 'to_review', label: 'À revoir' },
   { value: 'accepted', label: 'Acceptés' },
   { value: 'rejected', label: 'Rejetés' },
@@ -49,19 +50,19 @@ async function getStagingData(params: { q?: string; status?: string; category?: 
   const per_page = 50
   const offset = (params.page - 1) * per_page
 
-  const countRes = await pool.query(`SELECT COUNT(*) FROM import_sources ${where}`, values)
+  const countRes = await pool.query(`SELECT COUNT(*) FROM staging_listings ${where}`, values)
   const total = parseInt(countRes.rows[0].count)
 
   const dataRes = await pool.query(
     `SELECT id, name, category, commune, dog_policy, confidence_score, status, source_domain, source_url, admin_notes, dedupe_key
-     FROM import_sources ${where}
+     FROM staging_listings ${where}
      ORDER BY created_at DESC
      LIMIT ${per_page} OFFSET ${offset}`,
     values
   )
 
   // Distinct categories for filter
-  const catRes = await pool.query(`SELECT DISTINCT category FROM import_sources WHERE category IS NOT NULL ORDER BY category`)
+  const catRes = await pool.query(`SELECT DISTINCT category FROM staging_listings WHERE category IS NOT NULL ORDER BY category`)
 
   return { items: dataRes.rows as StagingItem[], total, per_page, categories: catRes.rows.map((r: { category: string }) => r.category) }
 }

@@ -37,13 +37,13 @@ export async function GET(req: NextRequest) {
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
 
   try {
-    const countRes = await pool.query(`SELECT COUNT(*) FROM import_sources ${where}`, params)
+    const countRes = await pool.query(`SELECT COUNT(*) FROM staging_listings ${where}`, params)
     const total = parseInt(countRes.rows[0].count)
 
     params.push(per_page, (page - 1) * per_page)
     const dataRes = await pool.query(
       `SELECT id, name, category, commune, dog_policy, confidence_score, status, source_domain, source_url, admin_notes, dedupe_key, created_at
-       FROM import_sources ${where}
+       FROM staging_listings ${where}
        ORDER BY created_at DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
@@ -63,7 +63,7 @@ export async function DELETE(req: NextRequest) {
     if (!Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json({ error: 'No ids' }, { status: 400 })
     }
-    const res = await pool.query(`DELETE FROM import_sources WHERE id = ANY($1)`, [ids])
+    const res = await pool.query(`DELETE FROM staging_listings WHERE id = ANY($1)`, [ids])
     return NextResponse.json({ deleted: res.rowCount })
   } catch {
     return NextResponse.json({ error: 'DB error' }, { status: 500 })
