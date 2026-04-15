@@ -5,7 +5,13 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 
 const NAV = [
-  { href: '/annuaire', label: 'Annuaire' },
+  { href: '/lieux', label: 'Lieux' },
+  { href: '/spots', label: 'Spots' },
+  { href: '/balades', label: 'Balades' },
+  { href: '/services', label: 'Services' },
+]
+
+const NAV_SECONDARY = [
   { href: '/carte', label: 'Carte' },
   { href: '/methodologie', label: 'Notre méthode' },
 ]
@@ -69,7 +75,22 @@ export function Header() {
               href={item.href}
               className="px-3.5 py-2 rounded-full text-sm font-semibold transition-all"
               style={{
-                color: pathname === item.href ? '#f97316' : '#57534e',
+                color: pathname.startsWith(item.href) ? '#f97316' : '#57534e',
+                background: pathname.startsWith(item.href) ? '#fff7ed' : 'transparent',
+                fontFamily: 'Nunito, sans-serif',
+              }}
+            >
+              {item.label}
+            </Link>
+          ))}
+          <span className="mx-1 text-stone-200">|</span>
+          {NAV_SECONDARY.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="px-3 py-2 rounded-full text-xs font-semibold transition-all"
+              style={{
+                color: pathname === item.href ? '#f97316' : '#a8a29e',
                 background: pathname === item.href ? '#fff7ed' : 'transparent',
                 fontFamily: 'Nunito, sans-serif',
               }}
@@ -129,7 +150,23 @@ export function Header() {
               onClick={() => setMenuOpen(false)}
               className="px-4 py-3 rounded-xl text-sm font-semibold transition-colors"
               style={{
-                color: pathname === item.href ? '#f97316' : '#44403c',
+                color: pathname.startsWith(item.href) ? '#f97316' : '#44403c',
+                background: pathname.startsWith(item.href) ? '#fff7ed' : 'transparent',
+                fontFamily: 'Nunito, sans-serif',
+              }}
+            >
+              {item.label}
+            </Link>
+          ))}
+          <div className="border-t my-1" style={{ borderColor: 'rgba(249,115,22,0.08)' }} />
+          {NAV_SECONDARY.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setMenuOpen(false)}
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors"
+              style={{
+                color: pathname === item.href ? '#f97316' : '#78716c',
                 background: pathname === item.href ? '#fff7ed' : 'transparent',
                 fontFamily: 'Nunito, sans-serif',
               }}

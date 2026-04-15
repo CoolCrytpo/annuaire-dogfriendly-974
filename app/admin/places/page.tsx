@@ -1,11 +1,6 @@
-import Link from 'next/link'
 import { getAdminPlaces } from '@/lib/db/queries'
-
-import { StatusBadge } from '@/components/ui/StatusBadge'
-import { DogPolicyBadge } from '@/components/ui/DogPolicyBadge'
-import { ConfidenceBadge } from '@/components/ui/ConfidenceBadge'
-import type { VerificationStatus } from '@/lib/types'
-import { formatDateShort } from '@/lib/utils/slug'
+import { PlacesBulkTable } from '@/components/admin/PlacesBulkTable'
+import Link from 'next/link'
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: '', label: 'Tous statuts' },
@@ -66,61 +61,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
         </button>
       </form>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wide">
-            <tr>
-              <th className="text-left px-4 py-3">Nom</th>
-              <th className="text-left px-4 py-3 hidden md:table-cell">Commune</th>
-              <th className="text-left px-4 py-3">Chiens</th>
-              <th className="text-left px-4 py-3 hidden sm:table-cell">Confiance</th>
-              <th className="text-left px-4 py-3">Statut</th>
-              <th className="text-left px-4 py-3 hidden lg:table-cell">Mis à jour</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {result.items.length === 0 && (
-              <tr>
-                <td colSpan={7} className="text-center py-10 text-gray-400">Aucune fiche trouvée</td>
-              </tr>
-            )}
-            {result.items.map((place) => (
-              <tr key={place.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3">
-                  <p className="font-medium text-gray-900 truncate max-w-[200px]">{place.name}</p>
-                  <p className="text-xs text-gray-400">{place.category?.label}</p>
-                </td>
-                <td className="px-4 py-3 hidden md:table-cell text-gray-600">
-                  {place.commune?.name ?? '—'}
-                </td>
-                <td className="px-4 py-3">
-                  <DogPolicyBadge policy={place.dog_policy} size="sm" showIcon={false} />
-                </td>
-                <td className="px-4 py-3 hidden sm:table-cell">
-                  <ConfidenceBadge level={place.confidence_level} showDate={false} />
-                  <span className="ml-1 text-xs text-gray-400">{place.confidence_score}</span>
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={place.verification_status as VerificationStatus} />
-                </td>
-                <td className="px-4 py-3 hidden lg:table-cell text-xs text-gray-400">
-                  {formatDateShort(place.updated_at)}
-                </td>
-                <td className="px-4 py-3">
-                  <Link
-                    href={`/admin/places/${place.id}`}
-                    className="text-green-700 hover:underline text-xs font-medium"
-                  >
-                    Éditer
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <PlacesBulkTable places={result.items} />
 
       {/* Pagination */}
       {totalPages > 1 && (

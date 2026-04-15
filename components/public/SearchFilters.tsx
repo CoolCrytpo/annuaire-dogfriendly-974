@@ -7,6 +7,7 @@ import type { PlaceCategory, Commune, DogPolicy } from '@/lib/types'
 interface Props {
   categories: PlaceCategory[]
   communes: Commune[]
+  basePath?: string
 }
 
 const POLICY_CHIPS: { value: DogPolicy | ''; label: string; icon: string; cls: string }[] = [
@@ -17,7 +18,7 @@ const POLICY_CHIPS: { value: DogPolicy | ''; label: string; icon: string; cls: s
   { value: 'unknown',    label: 'Non renseigné',   icon: '❓',  cls: 'chip-unknown' },
 ]
 
-export function SearchFilters({ categories, communes }: Props) {
+export function SearchFilters({ categories, communes, basePath = '/lieux' }: Props) {
   const router = useRouter()
   const sp = useSearchParams()
   const searchRef = useRef<HTMLInputElement>(null)
@@ -34,14 +35,14 @@ export function SearchFilters({ categories, communes }: Props) {
       if (value) params.set(key, value)
       else params.delete(key)
       params.delete('page')
-      router.push(`/annuaire?${params.toString()}`)
+      router.push(`${basePath}?${params.toString()}`)
     },
-    [router, sp]
+    [router, sp, basePath]
   )
 
   const clearAll = () => {
     if (searchRef.current) searchRef.current.value = ''
-    router.push('/annuaire')
+    router.push(basePath)
   }
 
   const hasFilters = !!(currentPolicy || currentCat || currentCommune || currentQ)

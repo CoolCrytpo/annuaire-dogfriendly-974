@@ -25,11 +25,33 @@ interface Props {
   searchParamsStr: string
   categories: PlaceCategory[]
   communes: Commune[]
-  children: React.ReactNode // SearchFilters passé en prop
+  children: React.ReactNode
+  title?: string
+  subtitle?: string
+  basePath?: string // ex: '/lieux' ou '/spots'
 }
 
-export function AnnuaireView({ places, total, totalPages, currentPage, searchParamsStr, children }: Props) {
+export function AnnuaireView({
+  places,
+  total,
+  totalPages,
+  currentPage,
+  searchParamsStr,
+  children,
+  title = 'Lieux dog-friendly',
+  subtitle,
+  basePath = '/lieux',
+}: Props) {
   const [view, setView] = useState<'list' | 'map'>('list')
+
+  const defaultSubtitle = (
+    <>
+      🏝️ La Réunion
+      {total > 0 && (
+        <> · <span style={{ fontWeight: 700, color: '#f97316' }}>{total}</span> lieu{total > 1 ? 'x' : ''}</>
+      )}
+    </>
+  )
 
   return (
     <div>
@@ -40,13 +62,10 @@ export function AnnuaireView({ places, total, totalPages, currentPage, searchPar
             className="text-2xl sm:text-3xl"
             style={{ fontFamily: 'Nunito, sans-serif', fontWeight: 900, color: '#1c1917' }}
           >
-            Annuaire dog-friendly
+            {title}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: '#78716c' }}>
-            🏝️ La Réunion
-            {total > 0 && (
-              <> · <span style={{ fontWeight: 700, color: '#f97316' }}>{total}</span> lieu{total > 1 ? 'x' : ''}</>
-            )}
+            {subtitle ?? defaultSubtitle}
           </p>
         </div>
 
@@ -126,7 +145,7 @@ export function AnnuaireView({ places, total, totalPages, currentPage, searchPar
                     return (
                       <a
                         key={p}
-                        href={`/annuaire?${params.toString()}`}
+                        href={`${basePath}?${params.toString()}`}
                         className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition-all"
                         style={{
                           fontFamily: 'Nunito, sans-serif',

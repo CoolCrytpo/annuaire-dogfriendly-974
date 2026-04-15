@@ -32,6 +32,24 @@ export type UserRole = 'admin' | 'editor'
 
 // ─── Entités ──────────────────────────────────────────────────────────────────
 
+export type ListingType = 'lieu' | 'spot' | 'balade' | 'service'
+
+export type TrailDifficulty = 'easy' | 'moderate' | 'hard' | 'expert'
+
+export interface TrailDetails {
+  difficulty: TrailDifficulty
+  distance_km: number | null
+  elevation_m: number | null
+  duration_minutes: number | null
+  terrain_type: 'forest' | 'coastal' | 'mountain' | 'mixed' | null
+  leash_required: boolean
+  has_water_points: boolean
+  water_points_desc: string | null
+  regulated_zones: string | null
+  start_lat: number | null
+  start_lng: number | null
+}
+
 export interface PlaceCategory {
   id: number
   slug: string
@@ -39,6 +57,7 @@ export interface PlaceCategory {
   icon: string | null
   sort_order: number
   is_active: boolean
+  listing_type?: ListingType
 }
 
 export interface Commune {
@@ -88,6 +107,8 @@ export interface Place {
 
   source_primary_id: string | null
   source_primary?: PlaceSource
+
+  trail_details: TrailDetails | null
 
   published_at: string | null
   created_at: string

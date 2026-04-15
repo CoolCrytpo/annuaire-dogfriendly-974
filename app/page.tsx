@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { getAllCategories, getAdminStats } from '@/lib/db/queries'
+import { AdSlot } from '@/components/ui/AdSlot'
 
 const CATEGORY_GRADIENTS: Record<string, string> = {
   restaurant: 'linear-gradient(135deg,#fee2e2,#fecaca)',
@@ -112,7 +113,7 @@ export default async function HomePage() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-              <Link href="/annuaire" className="btn-primary text-base px-8 py-3.5">
+              <Link href="/lieux" className="btn-primary text-base px-8 py-3.5">
                 🗺️ Explorer l&apos;annuaire
               </Link>
               <Link href="/carte" className="btn-secondary text-base px-8 py-3.5">
@@ -163,7 +164,7 @@ export default async function HomePage() {
                 Explorez par type de lieu
               </p>
             </div>
-            <Link href="/annuaire" className="btn-ghost text-sm hidden sm:inline-flex">
+            <Link href="/lieux" className="btn-ghost text-sm hidden sm:inline-flex">
               Tout voir →
             </Link>
           </div>
@@ -194,6 +195,11 @@ export default async function HomePage() {
           </div>
         </section>
       )}
+
+      {/* ─── AdSlot home ────────────────────────────────────────────────── */}
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        <AdSlot slotKey="home_milieu" />
+      </div>
 
       {/* ─── Comment ça marche ──────────────────────────────────────────── */}
       <section
