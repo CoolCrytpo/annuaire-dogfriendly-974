@@ -21,6 +21,8 @@ export function PlaceEditor({ place = {}, categories, communes, onSave }: Props)
   const [coverUrl, setCoverUrl] = useState<string | null>(place.cover_image_url ?? null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
+  const [urlInput, setUrlInput] = useState('')
+  const [savingUrl, setSavingUrl] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -51,6 +53,27 @@ export function PlaceEditor({ place = {}, categories, communes, onSave }: Props)
       body: JSON.stringify({ cover_image_url: null }),
     })
     setCoverUrl(null)
+  }
+
+  async function handleSaveUrl() {
+    const url = urlInput.trim()
+    if (!url || !place.id) return
+    setSavingUrl(true)
+    setUploadError('')
+    try {
+      const res = await fetch(`/api/admin/places/${place.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cover_image_url: url }),
+      })
+      if (!res.ok) throw new Error('Erreur serveur')
+      setCoverUrl(url)
+      setUrlInput('')
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setSavingUrl(false)
+    }
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -239,23 +262,42 @@ export function PlaceEditor({ place = {}, categories, communes, onSave }: Props)
                 Aucune photo
               </div>
             )}
-            <div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleUpload}
-              />
-              <button
-                type="button"
-                disabled={uploading}
-                onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-2 text-sm font-medium bg-stone-100 hover:bg-stone-200 disabled:opacity-50 rounded-lg border border-stone-300 transition-colors"
-              >
-                {uploading ? 'Envoi en cours…' : coverUrl ? 'Changer la photo' : 'Ajouter une photo'}
-              </button>
-              <p className="text-xs text-gray-400 mt-1.5">JPEG ou PNG · max 5 Mo</p>
+            <div className="flex-1 space-y-3">
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleUpload}
+                />
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-2 text-sm font-medium bg-stone-100 hover:bg-stone-200 disabled:opacity-50 rounded-lg border border-stone-300 transition-colors"
+                >
+                  {uploading ? 'Envoi en cours…' : coverUrl ? 'Changer (fichier)' : 'Uploader un fichier'}
+                </button>
+                <span className="text-xs text-gray-400 ml-2">JPEG / PNG / WebP · max 5 Mo</span>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  placeholder="https://exemple.com/photo.jpg"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-green-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  disabled={savingUrl || !urlInput.trim()}
+                  onClick={handleSaveUrl}
+                  className="px-3 py-1.5 text-sm font-medium bg-blue-50 hover:bg-blue-100 disabled:opacity-50 rounded-lg border border-blue-200 text-blue-700 transition-colors whitespace-nowrap"
+                >
+                  {savingUrl ? '…' : 'Utiliser l\'URL'}
+                </button>
+              </div>
             </div>
           </div>
         </section>

@@ -325,6 +325,293 @@ export async function getPlacesNeedingRecheck(): Promise<Place[]> {
   return result.rows
 }
 
+// ─── Spots ────────────────────────────────────────────────────────────────────
+
+const SPOT_CATEGORY_SLUGS = ['plage', 'parc', 'randonnee']
+
+export async function getPublishedSpots(params: PlaceSearchParams = {}): Promise<PaginatedResult<Place>> {
+  const { q, dog_policy, category_slug, commune_slug, page = 1, per_page = 24 } = params
+  const offset = (page - 1) * per_page
+
+  // Filter by spot categories only (or a specific spot category if requested)
+  const spotSlugs = category_slug
+    ? (SPOT_CATEGORY_SLUGS.includes(category_slug) ? [category_slug] : [])
+    : SPOT_CATEGORY_SLUGS
+
+  if (spotSlugs.length === 0) return { items: [], total: 0, page, per_page }
+
+  const conditions: string[] = [
+    "p.verification_status = 'published'",
+    `pc.slug = ANY($1::text[])`,
+  ]
+  const values: unknown[] = [spotSlugs]
+  let i = 2
+
+  if (q) {
+    conditions.push(`(p.normalized_name ILIKE $${i} OR to_tsvector('french', coalesce(p.name,'')) @@ plainto_tsquery('french', $${i+1}))`)
+    values.push(`%${q.toLowerCase()}%`, q)
+    i += 2
+  }
+  if (dog_policy) {
+    conditions.push(`p.dog_policy = $${i}`)
+    values.push(dog_policy)
+    i++
+  }
+  if (commune_slug) {
+    conditions.push(`cm.slug = $${i}`)
+    values.push(commune_slug)
+    i++
+  }
+
+  const where = conditions.join(' AND ')
+
+  const countResult = await pool.query(
+    `SELECT COUNT(*) FROM places p
+     LEFT JOIN place_categories pc ON p.category_id = pc.id
+     LEFT JOIN communes cm ON p.commune_id = cm.id
+     WHERE ${where}`,
+    values
+  )
+
+  const result = await pool.query(
+    `SELECT p.*,
+       row_to_json(pc.*) AS category,
+       row_to_json(cm.*) AS commune
+     FROM places p
+     LEFT JOIN place_categories pc ON p.category_id = pc.id
+     LEFT JOIN communes cm ON p.commune_id = cm.id
+     WHERE ${where}
+     ORDER BY p.is_featured DESC, p.confidence_score DESC, p.name ASC
+     LIMIT $${i} OFFSET $${i+1}`,
+    [...values, per_page, offset]
+  )
+
+  return { items: result.rows, total: parseInt(countResult.rows[0].count), page, per_page }
+}
+
+export async function getSpotCategories(): Promise<import('@/lib/types').PlaceCategory[]> {
+  const result = await pool.query(
+    `SELECT * FROM place_categories WHERE slug = ANY($1::text[]) AND is_active = true ORDER BY sort_order ASC`,
+    [SPOT_CATEGORY_SLUGS]
+  )
+  return result.rows
+}
+
+// ─── Services ─────────────────────────────────────────────────────────────────
+
+const SERVICE_CATEGORY_SLUGS = ['veterinaire', 'toilettage', 'pension', 'educateur', 'pet_sitting', 'transport']
+
+export async function getPublishedServices(params: PlaceSearchParams = {}): Promise<PaginatedResult<Place>> {
+  const { q, dog_policy, category_slug, commune_slug, page = 1, per_page = 24 } = params
+  const offset = (page - 1) * per_page
+
+  const serviceSlugs = category_slug
+    ? (SERVICE_CATEGORY_SLUGS.includes(category_slug) ? [category_slug] : [])
+    : SERVICE_CATEGORY_SLUGS
+
+  if (serviceSlugs.length === 0) return { items: [], total: 0, page, per_page }
+
+  const conditions: string[] = [
+    "p.verification_status = 'published'",
+    `pc.slug = ANY($1::text[])`,
+  ]
+  const values: unknown[] = [serviceSlugs]
+  let i = 2
+
+  if (q) {
+    conditions.push(`(p.normalized_name ILIKE $${i} OR to_tsvector('french', coalesce(p.name,'')) @@ plainto_tsquery('french', $${i+1}))`)
+    values.push(`%${q.toLowerCase()}%`, q)
+    i += 2
+  }
+  if (dog_policy) {
+    conditions.push(`p.dog_policy = $${i}`)
+    values.push(dog_policy)
+    i++
+  }
+  if (commune_slug) {
+    conditions.push(`cm.slug = $${i}`)
+    values.push(commune_slug)
+    i++
+  }
+
+  const where = conditions.join(' AND ')
+  const countResult = await pool.query(
+    `SELECT COUNT(*) FROM places p
+     LEFT JOIN place_categories pc ON p.category_id = pc.id
+     LEFT JOIN communes cm ON p.commune_id = cm.id
+     WHERE ${where}`, values
+  )
+  const result = await pool.query(
+    `SELECT p.*, row_to_json(pc.*) AS category, row_to_json(cm.*) AS commune
+     FROM places p
+     LEFT JOIN place_categories pc ON p.category_id = pc.id
+     LEFT JOIN communes cm ON p.commune_id = cm.id
+     WHERE ${where}
+     ORDER BY p.is_featured DESC, p.confidence_score DESC, p.name ASC
+     LIMIT $${i} OFFSET $${i+1}`,
+    [...values, per_page, offset]
+  )
+  return { items: result.rows, total: parseInt(countResult.rows[0].count), page, per_page }
+}
+
+export async function getServiceCategories(): Promise<import('@/lib/types').PlaceCategory[]> {
+  const result = await pool.query(
+    `SELECT * FROM place_categories WHERE slug = ANY($1::text[]) AND is_active = true ORDER BY sort_order ASC`,
+    [SERVICE_CATEGORY_SLUGS]
+  )
+  return result.rows
+}
+
+// ─── Balades / Trails ─────────────────────────────────────────────────────────
+
+const TRAIL_CATEGORY_SLUGS = ['randonnee']
+
+export async function getPublishedTrails(params: PlaceSearchParams & { difficulty?: string } = {}): Promise<PaginatedResult<Place>> {
+  const { q, dog_policy, commune_slug, difficulty, page = 1, per_page = 24 } = params
+  const offset = (page - 1) * per_page
+
+  const conditions: string[] = [
+    "p.verification_status = 'published'",
+    `pc.slug = ANY($1::text[])`,
+  ]
+  const values: unknown[] = [TRAIL_CATEGORY_SLUGS]
+  let i = 2
+
+  if (q) {
+    conditions.push(`(p.normalized_name ILIKE $${i} OR to_tsvector('french', coalesce(p.name,'')) @@ plainto_tsquery('french', $${i+1}))`)
+    values.push(`%${q.toLowerCase()}%`, q)
+    i += 2
+  }
+  if (dog_policy) {
+    conditions.push(`p.dog_policy = $${i}`)
+    values.push(dog_policy)
+    i++
+  }
+  if (commune_slug) {
+    conditions.push(`cm.slug = $${i}`)
+    values.push(commune_slug)
+    i++
+  }
+  if (difficulty) {
+    conditions.push(`p.trail_details->>'difficulty' = $${i}`)
+    values.push(difficulty)
+    i++
+  }
+
+  const where = conditions.join(' AND ')
+  const countResult = await pool.query(
+    `SELECT COUNT(*) FROM places p
+     LEFT JOIN place_categories pc ON p.category_id = pc.id
+     LEFT JOIN communes cm ON p.commune_id = cm.id
+     WHERE ${where}`, values
+  )
+  const result = await pool.query(
+    `SELECT p.*, row_to_json(pc.*) AS category, row_to_json(cm.*) AS commune
+     FROM places p
+     LEFT JOIN place_categories pc ON p.category_id = pc.id
+     LEFT JOIN communes cm ON p.commune_id = cm.id
+     WHERE ${where}
+     ORDER BY p.is_featured DESC, p.confidence_score DESC, p.name ASC
+     LIMIT $${i} OFFSET $${i+1}`,
+    [...values, per_page, offset]
+  )
+  return { items: result.rows, total: parseInt(countResult.rows[0].count), page, per_page }
+}
+
+export async function getTrailCategories(): Promise<import('@/lib/types').PlaceCategory[]> {
+  const result = await pool.query(
+    `SELECT * FROM place_categories WHERE slug = ANY($1::text[]) AND is_active = true ORDER BY sort_order ASC`,
+    [TRAIL_CATEGORY_SLUGS]
+  )
+  return result.rows
+}
+
+// ─── Commentaires publics (submissions acceptées avec message) ────────────────
+
+export interface PublicComment {
+  id: string
+  submitted_message: string
+  submitted_dog_policy: string | null
+  created_at: string
+}
+
+export async function getAcceptedComments(place_id: string): Promise<PublicComment[]> {
+  const result = await pool.query(
+    `SELECT id, submitted_message, submitted_dog_policy, created_at
+     FROM submissions
+     WHERE related_place_id = $1
+       AND status = 'accepted'
+       AND type = 'correction'
+       AND submitted_message IS NOT NULL
+       AND submitted_message <> ''
+     ORDER BY created_at DESC
+     LIMIT 10`,
+    [place_id]
+  )
+  return result.rows
+}
+
+// ─── Réactions ────────────────────────────────────────────────────────────────
+
+export type ReactionType = 'utile' | 'merci' | 'jadore' | 'oups'
+
+export interface ReactionCounts {
+  utile: number
+  merci: number
+  jadore: number
+  oups: number
+}
+
+export async function getReactionCounts(place_id: string): Promise<ReactionCounts> {
+  const result = await pool.query(
+    `SELECT reaction_type, COUNT(*) AS count
+     FROM reactions WHERE place_id = $1
+     GROUP BY reaction_type`,
+    [place_id]
+  )
+  const counts: ReactionCounts = { utile: 0, merci: 0, jadore: 0, oups: 0 }
+  for (const row of result.rows) {
+    counts[row.reaction_type as ReactionType] = parseInt(row.count)
+  }
+  return counts
+}
+
+export async function hasReacted(place_id: string, anon_hash: string, reaction_type: ReactionType): Promise<boolean> {
+  const result = await pool.query(
+    `SELECT 1 FROM reactions WHERE place_id = $1 AND anon_hash = $2 AND reaction_type = $3 LIMIT 1`,
+    [place_id, anon_hash, reaction_type]
+  )
+  return result.rows.length > 0
+}
+
+export async function addReaction(place_id: string, anon_hash: string, reaction_type: ReactionType): Promise<void> {
+  await pool.query(
+    `INSERT INTO reactions (place_id, anon_hash, reaction_type) VALUES ($1, $2, $3)`,
+    [place_id, anon_hash, reaction_type]
+  )
+}
+
+export async function removeReaction(place_id: string, anon_hash: string, reaction_type: ReactionType): Promise<void> {
+  await pool.query(
+    `DELETE FROM reactions WHERE place_id = $1 AND anon_hash = $2 AND reaction_type = $3`,
+    [place_id, anon_hash, reaction_type]
+  )
+}
+
+// ─── AdSlots ──────────────────────────────────────────────────────────────────
+
+export async function getActiveAdSlot(slot_key: string): Promise<import('@/lib/types').AdSlot | null> {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM ad_slots WHERE slot_key = $1 AND is_active = true LIMIT 1`,
+      [slot_key]
+    )
+    return result.rows[0] ?? null
+  } catch {
+    return null
+  }
+}
+
 // ─── Stats admin ──────────────────────────────────────────────────────────────
 
 export async function getAdminStats() {

@@ -65,18 +65,37 @@ export default function AdminImportPage() {
     setCandidates(data.candidates ?? [])
   }
 
+  function parseCsv(text: string): Record<string, unknown>[] {
+    const lines = text.split(/\r?\n/).filter(Boolean)
+    if (lines.length < 2) return []
+    const headers = lines[0].split(';').map(h => h.trim().replace(/^"|"$/g, ''))
+    return lines.slice(1).map(line => {
+      const values = line.split(';').map(v => v.trim().replace(/^"|"$/g, ''))
+      const obj: Record<string, unknown> = {}
+      headers.forEach((h, i) => { if (h) obj[h] = values[i] ?? null })
+      return obj
+    }).filter(r => String(r.name ?? '').trim())
+  }
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
     reader.onload = (ev) => {
       try {
-        const json = JSON.parse(ev.target?.result as string)
-        const items = Array.isArray(json) ? json : json.places ?? json.items ?? []
+        const text = ev.target?.result as string
+        let items: unknown[]
+        if (file.name.toLowerCase().endsWith('.csv')) {
+          items = parseCsv(text)
+          if (items.length === 0) throw new Error('CSV vide ou format invalide')
+        } else {
+          const json = JSON.parse(text)
+          items = Array.isArray(json) ? json : json.places ?? json.items ?? []
+        }
         setPreview(items.slice(0, 5))
         setError(null)
-      } catch {
-        setError('Fichier JSON invalide. Vérifiez le format.')
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Fichier invalide.')
         setPreview(null)
       }
     }
@@ -90,20 +109,40 @@ export default function AdminImportPage() {
     setError(null)
     try {
       const text = await file.text()
-      const json = JSON.parse(text)
-      const items = Array.isArray(json) ? json : json.places ?? json.items ?? []
-      const res = await fetch('/api/admin/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: batchName, items }),
-      })
-      if (!res.ok) throw new Error('Upload failed')
+      let items: Record<string, unknown>[]
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        items = parseCsv(text)
+        if (items.length === 0) throw new Error('CSV vide ou format invalide')
+      } else {
+        const json = JSON.parse(text) as Record<string, unknown>
+        const raw = Array.isArray(json) ? json : (json.places ?? json.items ?? [])
+        items = raw as Record<string, unknown>[]
+      }
+
+      // Chunked upload: send max 500 items per request
+      const CHUNK = 500
+      for (let offset = 0; offset < items.length; offset += CHUNK) {
+        const chunk = items.slice(offset, offset + CHUNK)
+        const chunkName = items.length > CHUNK
+          ? `${batchName} (${offset + 1}–${Math.min(offset + CHUNK, items.length)})`
+          : batchName
+        const res = await fetch('/api/admin/import/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: chunkName, items: chunk }),
+        })
+        if (!res.ok) {
+          const body = await res.text()
+          throw new Error(`Erreur import (chunk ${offset / CHUNK + 1}): ${body.slice(0, 120)}`)
+        }
+      }
+
       setBatchName('')
       setPreview(null)
       if (fileRef.current) fileRef.current.value = ''
       await loadBatches()
     } catch (e) {
-      setError(String(e))
+      setError(e instanceof Error ? e.message : String(e))
     } finally {
       setUploading(false)
     }
@@ -132,7 +171,7 @@ export default function AdminImportPage() {
           📥 Import de lieux
         </h1>
         <p className="text-stone-500 text-sm mt-1">
-          Importez un fichier JSON ou CSV de candidats. Chaque lieu doit être validé manuellement avant publication.
+          Importez un fichier JSON ou CSV (séparateur <code>;</code>) de candidats. Chaque lieu doit être validé manuellement avant publication.
         </p>
       </div>
 
@@ -215,7 +254,7 @@ export default function AdminImportPage() {
             <input
               ref={fileRef}
               type="file"
-              accept=".json"
+              accept=".json,.csv"
               onChange={handleFileChange}
               className="w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:cursor-pointer"
               style={{ color: '#78716c' }}

@@ -1,8 +1,10 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getPlaceBySlug, getPlaceSources } from '@/lib/db/queries'
+import { getPlaceBySlug, getPlaceSources, getReactionCounts, getAcceptedComments } from '@/lib/db/queries'
 import { SubmissionForm } from '@/components/public/SubmissionForm'
+import { ReactionBar } from '@/components/public/ReactionBar'
+import { AdSlot } from '@/components/ui/AdSlot'
 import { formatDate } from '@/lib/utils/slug'
 
 interface PageProps {
@@ -98,9 +100,17 @@ export default async function PlacePage({ params }: PageProps) {
 
   let place = null
   let sources: Awaited<ReturnType<typeof getPlaceSources>> = []
+  let reactionCounts: Awaited<ReturnType<typeof getReactionCounts>> = { utile: 0, merci: 0, jadore: 0, oups: 0 }
+  let comments: Awaited<ReturnType<typeof getAcceptedComments>> = []
   try {
     place = await getPlaceBySlug(slug)
-    if (place) sources = await getPlaceSources(place.id)
+    if (place) {
+      ;[sources, reactionCounts, comments] = await Promise.all([
+        getPlaceSources(place.id),
+        getReactionCounts(place.id),
+        getAcceptedComments(place.id),
+      ])
+    }
   } catch { /* DB non configurée */ }
 
   if (!place) return notFound()
@@ -111,8 +121,24 @@ export default async function PlacePage({ params }: PageProps) {
   const catSlug = place.category?.slug ?? 'autre'
   const heroGradient = CATEGORY_GRADIENTS[catSlug] ?? CATEGORY_GRADIENTS.autre
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'LocalBusiness',
+    name: place.name,
+    ...(place.short_description ? { description: place.short_description } : {}),
+    ...(place.address_text ? { address: { '@type': 'PostalAddress', streetAddress: place.address_text, addressLocality: place.commune?.name ?? 'La Réunion', addressCountry: 'FR' } } : {}),
+    ...(place.phone ? { telephone: place.phone } : {}),
+    ...(place.website_url ? { url: place.website_url } : {}),
+    ...(place.lat && place.lng ? { geo: { '@type': 'GeoCoordinates', latitude: place.lat, longitude: place.lng } } : {}),
+    ...(place.cover_image_url ? { image: place.cover_image_url } : {}),
+  }
+
   return (
     <div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Hero image */}
       <div
         className="w-full relative overflow-hidden"
@@ -132,7 +158,7 @@ export default async function PlacePage({ params }: PageProps) {
         {/* Breadcrumb */}
         <div className="absolute top-4 left-4 right-4 max-w-3xl mx-auto">
           <nav className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(255,255,255,0.85)' }}>
-            <Link href="/annuaire" className="hover:text-white transition-colors">Annuaire</Link>
+            <Link href="/lieux" className="hover:text-white transition-colors">Lieux</Link>
             <span>/</span>
             {place.commune && (
               <>
@@ -376,6 +402,42 @@ export default async function PlacePage({ params }: PageProps) {
             Comment nous évaluons la fiabilité →
           </Link>
         </div>
+
+        {/* Réactions */}
+        <div className="mb-6">
+          <ReactionBar placeId={place.id} initialCounts={reactionCounts} />
+        </div>
+
+        {/* Commentaires validés */}
+        {comments.length > 0 && (
+          <div
+            className="rounded-2xl p-5 mb-6"
+            style={{ background: 'white', border: '1px solid rgba(249,115,22,0.1)', boxShadow: '0 2px 8px rgba(249,115,22,0.06)' }}
+          >
+            <h2
+              className="text-sm font-bold mb-4 uppercase tracking-wider"
+              style={{ color: '#f97316', fontFamily: 'Nunito, sans-serif' }}
+            >
+              💬 Retours vérifiés
+            </h2>
+            <div className="space-y-3">
+              {comments.map((c) => (
+                <div key={c.id} className="flex gap-3 text-sm">
+                  <span className="mt-0.5 flex-shrink-0 text-base">🐾</span>
+                  <div>
+                    <p style={{ color: '#44403c' }}>{c.submitted_message}</p>
+                    <p className="text-xs mt-0.5" style={{ color: '#a8a29e' }}>
+                      {new Date(c.created_at).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long' })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* AdSlot fiche */}
+        <AdSlot slotKey="fiche_bas" className="mb-6" />
 
         {/* Formulaire correction */}
         <div
